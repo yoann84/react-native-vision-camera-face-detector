@@ -1,11 +1,11 @@
-import VisionCamera
+import AVFoundation
+import CoreML
 import Foundation
 import MLKitFaceDetection
 import MLKitVision
-import CoreML
-import UIKit
-import AVFoundation
 import SceneKit
+import UIKit
+import VisionCamera
 
 @objc(VisionCameraFaceDetector)
 public class VisionCameraFaceDetector: FrameProcessorPlugin {
@@ -20,8 +20,8 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
   private var windowHeight = 1.0
 
   public override init(
-    proxy: VisionCameraProxyHolder, 
-    options: [AnyHashable : Any]! = [:]
+    proxy: VisionCameraProxyHolder,
+    options: [AnyHashable: Any]! = [:]
   ) {
     super.init(proxy: proxy, options: options)
     let config = getConfig(withArguments: options)
@@ -42,12 +42,12 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     // initializes faceDetector on creation
     let minFaceSize = 0.15
     let optionsBuilder = FaceDetectorOptions()
-        optionsBuilder.performanceMode = .fast
-        optionsBuilder.landmarkMode = .none
-        optionsBuilder.contourMode = .none
-        optionsBuilder.classificationMode = .none
-        optionsBuilder.minFaceSize = minFaceSize
-        optionsBuilder.isTrackingEnabled = false
+    optionsBuilder.performanceMode = .fast
+    optionsBuilder.landmarkMode = .none
+    optionsBuilder.contourMode = .none
+    optionsBuilder.classificationMode = .none
+    optionsBuilder.minFaceSize = minFaceSize
+    optionsBuilder.isTrackingEnabled = false
 
     if config?["performanceMode"] as? String == "accurate" {
       optionsBuilder.performanceMode = .accurate
@@ -83,12 +83,13 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
 
   func getConfig(
     withArguments arguments: [AnyHashable: Any]!
-  ) -> [String:Any]! {
+  ) -> [String: Any]! {
     if arguments.count > 0 {
       let config = arguments.map { dictionary in
-        Dictionary(uniqueKeysWithValues: dictionary.map { (key, value) in
-          (key as? String ?? "", value)
-        })
+        Dictionary(
+          uniqueKeysWithValues: dictionary.map { (key, value) in
+            (key as? String ?? "", value)
+          })
       }
 
       return config
@@ -104,26 +105,61 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     orientation: UIImage.Orientation,
     scaleX: CGFloat,
     scaleY: CGFloat
-  ) -> [String:Any] {
+  ) -> [String: Any] {
     let boundingBox = face.frame
     let width = boundingBox.width * scaleX
     let height = boundingBox.height * scaleY
-    let x = boundingBox.origin.y * scaleX
-    let y = boundingBox.origin.x * scaleY
-    
-    return [
-      "width": width,
-      "height": height,
-      "x": (-x + sourceWidth * scaleX) - width,
-      "y": y
-    ]
+    let x = boundingBox.origin.x * scaleX
+    let y = boundingBox.origin.y * scaleY
+
+    switch orientation {
+    case .up:
+      // device is landscape left
+      return [
+        "width": width,
+        "height": height,
+        "x": (-y + sourceWidth * scaleX) - width,
+        "y": (-x + sourceHeight * scaleY) - height,
+      ]
+    case .left:
+      // device is portrait
+      return [
+        "width": width,
+        "height": height,
+        "x": (-x + sourceWidth * scaleX) - width,
+        "y": y,
+      ]
+    case .down:
+      // device is landscape right
+      return [
+        "width": width,
+        "height": height,
+        "x": y,
+        "y": x,
+      ]
+    case .right:
+      // device is upside-down
+      return [
+        "width": width,
+        "height": height,
+        "x": x,
+        "y": (-y + sourceHeight * scaleY) - height,
+      ]
+    default:
+      return [
+        "width": width,
+        "height": height,
+        "x": (-y + sourceWidth * scaleX) - width,
+        "y": (-x + sourceHeight * scaleY) - height,
+      ]
+    }
   }
 
   func processLandmarks(
     from face: Face,
     scaleX: CGFloat,
     scaleY: CGFloat
-  ) -> [String:[String: CGFloat?]] {
+  ) -> [String: [String: CGFloat?]] {
     let faceLandmarkTypes = [
       FaceLandmarkType.leftCheek,
       FaceLandmarkType.leftEar,
@@ -134,7 +170,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       FaceLandmarkType.noseBase,
       FaceLandmarkType.rightCheek,
       FaceLandmarkType.rightEar,
-      FaceLandmarkType.rightEye
+      FaceLandmarkType.rightEye,
     ]
 
     let faceLandmarksTypesStrings = [
@@ -147,15 +183,15 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       "NOSE_BASE",
       "RIGHT_CHEEK",
       "RIGHT_EAR",
-      "RIGHT_EYE"
-    ];
+      "RIGHT_EYE",
+    ]
 
     var faceLandMarksTypesMap: [String: [String: CGFloat?]] = [:]
     for i in 0..<faceLandmarkTypes.count {
-      let landmark = face.landmark(ofType: faceLandmarkTypes[i]);
+      let landmark = face.landmark(ofType: faceLandmarkTypes[i])
       let position = [
         "x": landmark?.position.x ?? 0.0 * scaleX,
-        "y": landmark?.position.y ?? 0.0 * scaleY
+        "y": landmark?.position.y ?? 0.0 * scaleY,
       ]
       faceLandMarksTypesMap[faceLandmarksTypesStrings[i]] = position
     }
@@ -167,7 +203,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     from face: Face,
     scaleX: CGFloat,
     scaleY: CGFloat
-  ) -> [String:[[String:CGFloat]]] {
+  ) -> [String: [[String: CGFloat]]] {
     let faceContoursTypes = [
       FaceContourType.face,
       FaceContourType.leftCheek,
@@ -183,7 +219,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       FaceContourType.rightEyebrowBottom,
       FaceContourType.rightEyebrowTop,
       FaceContourType.upperLipBottom,
-      FaceContourType.upperLipTop
+      FaceContourType.upperLipTop,
     ]
 
     let faceContoursTypesStrings = [
@@ -201,13 +237,13 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       "RIGHT_EYEBROW_BOTTOM",
       "RIGHT_EYEBROW_TOP",
       "UPPER_LIP_BOTTOM",
-      "UPPER_LIP_TOP"
-    ];
+      "UPPER_LIP_TOP",
+    ]
 
-    var faceContoursTypesMap: [String:[[String:CGFloat]]] = [:]
+    var faceContoursTypesMap: [String: [[String: CGFloat]]] = [:]
     for i in 0..<faceContoursTypes.count {
-      let contour = face.contour(ofType: faceContoursTypes[i]);
-      var pointsArray: [[String:CGFloat]] = []
+      let contour = face.contour(ofType: faceContoursTypes[i])
+      var pointsArray: [[String: CGFloat]] = []
 
       if let points = contour?.points {
         for point in points {
@@ -230,31 +266,32 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     orientation: UIImage.Orientation
   ) -> UIImage.Orientation {
     switch orientation {
-      case .up:
-        // device is landscape left
-        return .up
-      case .left:
+    case .up:
       // device is portrait
-        return .right
-      case .down:
-        // device is landscape right
-        return .down
-      case .right:
-        // device is upside-down
-        return .left
-      default:
-        return .up
+      return .right
+    case .left:
+      // device is landscape right
+      return .up
+    case .down:
+      // device is portrait upside down
+      return .left
+    case .right:
+      // device is landscape left
+      return .down
+    default:
+      return .right
     }
   }
-  
+
   public override func callback(
-    _ frame: Frame, 
+    _ frame: Frame,
     withArguments arguments: [AnyHashable: Any]?
   ) -> Any {
     var result: [Any] = []
 
     do {
-      // we need to invert sizes as frame is always -90deg rotated
+      // Frame is always in landscape orientation (-90° rotated)
+      // So we need to swap width and height
       let width = CGFloat(frame.height)
       let height = CGFloat(frame.width)
       let orientation = getOrientation(
@@ -262,10 +299,11 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       )
       let image = VisionImage(buffer: frame.buffer)
       image.orientation = orientation
-    
-      var scaleX:CGFloat
-      var scaleY:CGFloat
+
+      var scaleX: CGFloat
+      var scaleY: CGFloat
       if autoScale {
+        // Scale factors should also be swapped to match the rotated frame
         scaleX = windowWidth / width
         scaleY = windowHeight / height
       } else {

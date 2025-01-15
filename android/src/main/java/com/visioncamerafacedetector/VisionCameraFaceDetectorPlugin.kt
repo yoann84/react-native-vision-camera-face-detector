@@ -97,29 +97,35 @@ class VisionCameraFaceDetectorPlugin(
 
     when(orientation) {
       Orientation.PORTRAIT -> {
-        // device is landscape left
+        // device is portrait
+        bounds["width"] = width
+        bounds["height"] = height
         bounds["x"] = (-y + sourceWidth * scaleX) - width
         bounds["y"] = (-x + sourceHeight * scaleY) - height
       }
       Orientation.LANDSCAPE_LEFT -> {
-        // device is portrait
+        // device is landscape right
+        bounds["width"] = width
+        bounds["height"] = height
         bounds["x"] = (-x + sourceWidth * scaleX) - width
         bounds["y"] = y
       }
       Orientation.PORTRAIT_UPSIDE_DOWN -> {
-        // device is landscape right
+        // device is portrait upside down
+        bounds["width"] = width
+        bounds["height"] = height
         bounds["x"] = y
         bounds["y"] = x
       }
       Orientation.LANDSCAPE_RIGHT -> {
-        // device is upside down
+        // device is landscape left
+        bounds["width"] = width
+        bounds["height"] = height
         bounds["x"] = x
         bounds["y"] = (-y + sourceHeight * scaleY) - height
       }
     }
 
-    bounds["width"] = width
-    bounds["height"] = height
     return bounds
   }
 
@@ -249,14 +255,14 @@ class VisionCameraFaceDetectorPlugin(
     orientation: Orientation
   ): Int {
     return when (orientation) {
-      // device is landscape left
-      Orientation.PORTRAIT -> 0
       // device is portrait
-      Orientation.LANDSCAPE_LEFT -> 270
+      Orientation.PORTRAIT -> 270
       // device is landscape right
-      Orientation.PORTRAIT_UPSIDE_DOWN -> 180
-      // device is upside-down
-      Orientation.LANDSCAPE_RIGHT -> 90
+      Orientation.LANDSCAPE_LEFT -> 0
+      // device is portrait upside down
+      Orientation.PORTRAIT_UPSIDE_DOWN -> 90
+      // device is landscape left
+      Orientation.LANDSCAPE_RIGHT -> 180
     }
   }
 
@@ -267,16 +273,19 @@ class VisionCameraFaceDetectorPlugin(
     val result = ArrayList<Map<String, Any>>()
     
     try {
+      // Frame is always in landscape orientation (-90° rotated)
+      // So we need to swap width and height
+      val width = frame.image.height.toDouble()
+      val height = frame.image.width.toDouble()
       val orientation = getOrientation(frame.orientation)
       val image = InputImage.fromMediaImage(frame.image, orientation)
-      // we need to invert sizes as frame is always -90deg rotated
-      val width = image.height.toDouble()
-      val height = image.width.toDouble()
+      
       val scaleX = if(autoScale) windowWidth / width else 1.0
       val scaleY = if(autoScale) windowHeight / height else 1.0
+      
       val task = faceDetector!!.process(image)
       val faces = Tasks.await(task)
-      faces.forEach{face ->
+      faces.forEach { face ->
         val map: MutableMap<String, Any> = HashMap()
 
         if (runLandmarks) {
