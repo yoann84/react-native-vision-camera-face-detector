@@ -8,8 +8,6 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
-lib/
-
 # Android/IntelliJ
 #
 build/
