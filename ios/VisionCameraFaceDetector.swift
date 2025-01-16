@@ -18,6 +18,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
   private var trackingEnabled = false
   private var windowWidth = 1.0
   private var windowHeight = 1.0
+  private var outputOrientation: String = "portrait"
 
   public override init(
     proxy: VisionCameraProxyHolder,
@@ -25,6 +26,11 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
   ) {
     super.init(proxy: proxy, options: options)
     let config = getConfig(withArguments: options)
+
+    if let outputOrientationParam = config?["outputOrientation"] as? String {
+      outputOrientation = outputOrientationParam
+
+    }
 
     let windowWidthParam = config?["windowWidth"] as? Double
     if windowWidthParam != nil && windowWidthParam != windowWidth {
@@ -109,50 +115,15 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     let boundingBox = face.frame
     let width = boundingBox.width * scaleX
     let height = boundingBox.height * scaleY
-    let x = boundingBox.origin.x * scaleX
-    let y = boundingBox.origin.y * scaleY
+    let x = boundingBox.origin.y * scaleX
+    let y = boundingBox.origin.x * scaleY
 
-    switch orientation {
-    case .up:
-      // device is landscape left
-      return [
-        "width": width,
-        "height": height,
-        "x": (-y + sourceWidth * scaleX) - width,
-        "y": (-x + sourceHeight * scaleY) - height,
-      ]
-    case .left:
-      // device is portrait
-      return [
-        "width": width,
-        "height": height,
-        "x": (-x + sourceWidth * scaleX) - width,
-        "y": y,
-      ]
-    case .down:
-      // device is landscape right
-      return [
-        "width": width,
-        "height": height,
-        "x": y,
-        "y": x,
-      ]
-    case .right:
-      // device is upside-down
-      return [
-        "width": width,
-        "height": height,
-        "x": x,
-        "y": (-y + sourceHeight * scaleY) - height,
-      ]
-    default:
-      return [
-        "width": width,
-        "height": height,
-        "x": (-y + sourceWidth * scaleX) - width,
-        "y": (-x + sourceHeight * scaleY) - height,
-      ]
-    }
+    return [
+      "width": width,
+      "height": height,
+      "x": (-x + sourceWidth * scaleX) - width,
+      "y": y,
+    ]
   }
 
   func processLandmarks(
@@ -262,25 +233,42 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     return faceContoursTypesMap
   }
 
-  func getOrientation(
-    orientation: UIImage.Orientation
-  ) -> UIImage.Orientation {
+  private func orientationToDegrees(_ orientation: UIImage.Orientation) -> Int {
     switch orientation {
-    case .up:
-      // device is portrait
-      return .right
-    case .left:
-      // device is landscape right
-      return .up
-    case .down:
-      // device is portrait upside down
-      return .left
-    case .right:
-      // device is landscape left
-      return .down
-    default:
-      return .right
+    case .up: return 0
+    case .right: return 270  // return left
+    case .down: return 180  // return down
+    case .left: return 90  // return right
+    default: return 0
     }
+  }
+
+  private func degreesToOrientation(_ degrees: Int) -> UIImage.Orientation {
+    switch (degrees + 360) % 360 {
+    case 0: return .up
+    case 90: return .right
+    case 180: return .down
+    case 270: return .left
+    default: return .up
+    }
+  }
+
+  func getOrientation(orientation: UIImage.Orientation) -> UIImage.Orientation {
+    // Convert current orientation to degrees
+    let currentDegrees = orientationToDegrees(orientation)
+
+    // Add additional rotation based on outputOrientation
+    let additionalDegrees =
+      switch outputOrientation {
+      case "landscape-left": 90  // home button on left
+      case "landscape-right": 270  // home button on right
+      case "portrait-upside-down": 180  // home button on top
+      case "portrait": 0  // home button on bottom
+      default: 0  // "portrait" or default
+      }
+
+    // Combine rotations and convert back to UIImage.Orientation
+    return degreesToOrientation((currentDegrees + additionalDegrees) % 360)
   }
 
   public override func callback(
@@ -304,6 +292,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       var scaleY: CGFloat
       if autoScale {
         // Scale factors should also be swapped to match the rotated frame
+
         scaleX = windowWidth / width
         scaleY = windowHeight / height
       } else {

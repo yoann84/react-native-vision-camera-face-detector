@@ -162,17 +162,29 @@ You should read `vision-camera` [docs](https://react-native-vision-camera.com/do
 
 ## Face Detection Options
 
-| Option  | Description | Default |
-| ------------- | ------------- | ------------- |
-| `performanceMode` | Favor speed or accuracy when detecting faces.  | `fast` |
-| `landmarkMode` | Whether to attempt to identify facial `landmarks`: eyes, ears, nose, cheeks, mouth, and so on. | `none` |
-| `contourMode` | Whether to detect the contours of facial features. Contours are detected for only the most prominent face in an image. | `none` |
-| `classificationMode` | Whether or not to classify faces into categories such as 'smiling', and 'eyes open'. | `none` |
-| `minFaceSize` | Sets the smallest desired face size, expressed as the ratio of the width of the head to width of the image. | `0.15` |
-| `trackingEnabled` | Whether or not to assign faces an ID, which can be used to track faces across images. Note that when contour detection is enabled, only one face is detected, so face tracking doesn't produce useful results. For this reason, and to improve detection speed, don't enable both contour detection and face tracking. | `false` |
-| `autoScale` | Should auto scale face bounds, contour and landmarks on native side? If this option is disabled all detection results will be relative to frame coordinates, not to screen/preview. You shouldn't use this option if you want to draw on screen using `Skia Frame Processor`. See [this](https://github.com/luicfrr/react-native-vision-camera-face-detector/issues/30#issuecomment-2058805546) and [this](https://github.com/luicfrr/react-native-vision-camera-face-detector/issues/35) for more details. | `false` |
-| `windowWidth` | * Required if you want to use `autoScale`. You must handle your own logic to get screen sizes, with or without statusbar size, etc... | `1.0` |
-| `windowHeight` | * Required if you want to use `autoScale`. You must handle your own logic to get screen sizes, with or without statusbar size, etc... | `1.0` |
+The face detector can be configured with the following options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| performanceMode | 'fast' \| 'accurate' | 'fast' | Favor speed or accuracy when detecting faces |
+| landmarkMode | 'none' \| 'all' | 'none' | Whether to detect facial landmarks |
+| contourMode | 'none' \| 'all' | 'none' | Whether to detect facial contours |
+| classificationMode | 'none' \| 'all' | 'none' | Whether to classify faces (smiling, eyes open) |
+| minFaceSize | number | 0.15 | Minimum face size as ratio of image width |
+| trackingEnabled | boolean | false | Whether to track faces across frames |
+| autoScale | boolean | false | Auto-scale face bounds to screen dimensions |
+| windowWidth | number | 1.0 | Screen width for auto-scaling |
+| windowHeight | number | 1.0 | Screen height for auto-scaling |
+| outputOrientation | 'portrait' \| 'landscapeLeft' \| 'landscapeRight' \| 'portraitUpsideDown' \| 'preview' | 'preview' | Control face detection orientation |
+
+### Output Orientation
+
+The `outputOrientation` option controls how face detection coordinates are oriented:
+- `'preview'`: Uses the camera preview's natural orientation (default)
+- `'portrait'`: Forces portrait orientation
+- `'landscapeLeft'`: Forces landscape left orientation
+- `'landscapeRight'`: Forces landscape right orientation
+- `'portraitUpsideDown'`: Forces portrait upside down orientation
 
 ## 🔧 Troubleshooting
 

@@ -30,6 +30,7 @@ class VisionCameraFaceDetectorPlugin(
   private var trackingEnabled = false
   private var windowWidth = 1.0
   private var windowHeight = 1.0
+  private var outputOrientation: String = "portrait"
 
   init {
     // handle auto scaling
@@ -61,6 +62,10 @@ class VisionCameraFaceDetectorPlugin(
     if (options?.get("contourMode").toString() == "all") {
       runContours = true
       contourModeValue = FaceDetectorOptions.CONTOUR_MODE_ALL
+    }
+
+    if (options?.get("outputOrientation") != null) {
+      outputOrientation = options["outputOrientation"] as String
     }
 
     val minFaceSize: Double = (options?.get("minFaceSize") ?: 0.15) as Double
@@ -95,7 +100,7 @@ class VisionCameraFaceDetectorPlugin(
     val x = boundingBox.left.toDouble() * scaleX
     val y = boundingBox.top.toDouble() * scaleY
 
-    when(orientation) {
+   when(orientation) {
       Orientation.PORTRAIT -> {
         // device is portrait
         bounds["width"] = width
@@ -126,6 +131,8 @@ class VisionCameraFaceDetectorPlugin(
       }
     }
 
+    bounds["width"] = width
+    bounds["height"] = height
     return bounds
   }
 
@@ -254,15 +261,19 @@ class VisionCameraFaceDetectorPlugin(
   private fun getOrientation(
     orientation: Orientation
   ): Int {
-    return when (orientation) {
-      // device is portrait
-      Orientation.PORTRAIT -> 270
-      // device is landscape right
-      Orientation.LANDSCAPE_LEFT -> 0
-      // device is portrait upside down
-      Orientation.PORTRAIT_UPSIDE_DOWN -> 90
-      // device is landscape left
-      Orientation.LANDSCAPE_RIGHT -> 180
+    // First apply default device orientation
+    val rotation = when (orientation) {
+      Orientation.PORTRAIT -> 0            
+      Orientation.LANDSCAPE_LEFT -> 90     
+      Orientation.PORTRAIT_UPSIDE_DOWN -> 180
+      Orientation.LANDSCAPE_RIGHT -> 270   
+    
+    // Then apply additional rotation if specified
+    return when (outputOrientation) {
+      "landscape-left" -> (rotation + 90) % 360    // home button left
+      "landscape-right" -> (rotation + 270) % 360  // home button right
+      "portrait-upside-down" -> (rotation + 180) % 360
+      else -> rotation  // "portrait" or default
     }
   }
 
@@ -273,19 +284,16 @@ class VisionCameraFaceDetectorPlugin(
     val result = ArrayList<Map<String, Any>>()
     
     try {
-      // Frame is always in landscape orientation (-90° rotated)
-      // So we need to swap width and height
-      val width = frame.image.height.toDouble()
-      val height = frame.image.width.toDouble()
       val orientation = getOrientation(frame.orientation)
       val image = InputImage.fromMediaImage(frame.image, orientation)
-      
+      // we need to invert sizes as frame is always -90deg rotated
+      val width = image.height.toDouble()
+      val height = image.width.toDouble()
       val scaleX = if(autoScale) windowWidth / width else 1.0
       val scaleY = if(autoScale) windowHeight / height else 1.0
-      
       val task = faceDetector!!.process(image)
       val faces = Tasks.await(task)
-      faces.forEach { face ->
+      faces.forEach{face ->
         val map: MutableMap<String, Any> = HashMap()
 
         if (runLandmarks) {
