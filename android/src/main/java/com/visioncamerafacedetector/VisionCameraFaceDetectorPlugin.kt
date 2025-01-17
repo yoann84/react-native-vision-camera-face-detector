@@ -267,6 +267,7 @@ class VisionCameraFaceDetectorPlugin(
       Orientation.LANDSCAPE_LEFT -> 90     
       Orientation.PORTRAIT_UPSIDE_DOWN -> 180
       Orientation.LANDSCAPE_RIGHT -> 270   
+    }
     
     // Then apply additional rotation if specified
     return when (outputOrientation) {
