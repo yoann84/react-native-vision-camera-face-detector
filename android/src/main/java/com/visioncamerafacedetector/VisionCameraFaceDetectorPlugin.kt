@@ -264,15 +264,15 @@ class VisionCameraFaceDetectorPlugin(
     // First apply default device orientation
     val rotation = when (orientation) {
       Orientation.PORTRAIT -> 0            
-      Orientation.LANDSCAPE_LEFT -> 90     
+      Orientation.LANDSCAPE_LEFT -> 270     
       Orientation.PORTRAIT_UPSIDE_DOWN -> 180
-      Orientation.LANDSCAPE_RIGHT -> 270   
+      Orientation.LANDSCAPE_RIGHT -> 90   
     }
     
     // Then apply additional rotation if specified
     return when (outputOrientation) {
-      "landscape-left" -> (rotation + 90) % 360    // home button left
-      "landscape-right" -> (rotation + 270) % 360  // home button right
+      "landscape-left" -> (rotation + 270) % 360    // home button left
+      "landscape-right" -> (rotation + 90) % 360  // home button right
       "portrait-upside-down" -> (rotation + 180) % 360
       else -> rotation  // "portrait" or default
     }
