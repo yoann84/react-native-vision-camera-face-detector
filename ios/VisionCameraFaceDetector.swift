@@ -149,7 +149,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
 
     case "portrait":
       let newX = y
-      let newY = (-x + sourceWidth) - width
+      let newY = sourceWidth - (x + width)
       x = newX
       y = newY
       let temp = width
@@ -159,7 +159,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     default:  // "portrait" or any other orientation defaults to our base case
       // Using the original working transformation for portrait
       let newX = y
-      let newY = (-x + sourceWidth) - width
+      let newY = sourceWidth - (x + width)
       x = newX
       y = newY
       let temp = width
