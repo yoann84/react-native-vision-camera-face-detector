@@ -113,16 +113,52 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     scaleY: CGFloat
   ) -> [String: Any] {
     let boundingBox = face.frame
-    let width = boundingBox.width * scaleX
-    let height = boundingBox.height * scaleY
-    let x = boundingBox.origin.y * scaleX
-    let y = boundingBox.origin.x * scaleY
 
+    // First, get the raw coordinates
+    var x = boundingBox.origin.x
+    var y = boundingBox.origin.y
+    var width = boundingBox.width
+    var height = boundingBox.height
+
+    // Transform coordinates based on outputOrientation
+    switch outputOrientation {
+    case "portrait":
+      // In portrait, we need to swap coordinates because frame is in landscape-right
+      // but we want to display in portrait
+      let newX = y
+      let newY = sourceWidth - (x + width)
+      x = newX
+      y = newY
+      let temp = width
+      width = height
+      height = temp
+
+    case "landscape-right":
+      // No transformation needed as this matches the frame's native orientation
+      break
+
+    case "landscape-left":
+      // Need to rotate 180° from landscape-right
+      x = sourceWidth - (x + width)
+      y = sourceHeight - (y + height)
+
+    case "portrait-upside-down":
+      // Rotate 180° from normal portrait
+      let newX = sourceHeight - (y + height)
+      let newY = x
+      x = newX
+      y = newY
+      let temp = width
+      width = height
+      height = temp
+    }
+
+    // Apply scaling after transformation
     return [
-      "width": width,
-      "height": height,
-      "x": (-x + sourceWidth * scaleX) - width,
-      "y": y,
+      "width": width * scaleX,
+      "height": height * scaleY,
+      "x": x * scaleX,
+      "y": y * scaleY,
     ]
   }
 
@@ -278,28 +314,29 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     var result: [Any] = []
 
     do {
-      // Frame is always in landscape orientation (-90° rotated)
-      // So we need to swap width and height
-      let width = CGFloat(frame.height)
-      let height = CGFloat(frame.width)
-      let orientation = getOrientation(
-        orientation: frame.orientation
+      // Create normalized frame dimensions based on the desired output orientation
+      let normalizedDimensions = getNormalizedDimensions(
+        frameWidth: frame.width,
+        frameHeight: frame.height,
+        outputOrientation: outputOrientation
       )
-      let image = VisionImage(buffer: frame.buffer)
-      image.orientation = orientation
 
+      let image = VisionImage(buffer: frame.buffer)
+      // Set the correct orientation for ML Kit processing
+      image.orientation = getOrientation(orientation: frame.orientation)
+
+      // Use normalized dimensions for scaling
       var scaleX: CGFloat
       var scaleY: CGFloat
       if autoScale {
-        // Scale factors should also be swapped to match the rotated frame
-
-        scaleX = windowWidth / width
-        scaleY = windowHeight / height
+        scaleX = windowWidth / normalizedDimensions.width
+        scaleY = windowHeight / normalizedDimensions.height
       } else {
         scaleX = CGFloat(1)
         scaleY = CGFloat(1)
       }
 
+      // Process faces with normalized coordinates
       let faces: [Face] = try faceDetector!.results(in: image)
       for face in faces {
         var map: [String: Any] = [:]
@@ -335,9 +372,9 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
         map["yawAngle"] = face.headEulerAngleY
         map["bounds"] = processBoundingBox(
           from: face,
-          sourceWidth: width,
-          sourceHeight: height,
-          orientation: frame.orientation,
+          sourceWidth: normalizedDimensions.width,
+          sourceHeight: normalizedDimensions.height,
+          orientation: image.orientation,
           scaleX: scaleX,
           scaleY: scaleY
         )
@@ -349,5 +386,16 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     }
 
     return result
+  }
+
+  private func getNormalizedDimensions(frameWidth: Int, frameHeight: Int, outputOrientation: String)
+    -> (width: CGFloat, height: CGFloat)
+  {
+    let isOutputLandscape = outputOrientation.contains("landscape")
+    let width = CGFloat(
+      isOutputLandscape ? max(frameWidth, frameHeight) : min(frameWidth, frameHeight))
+    let height = CGFloat(
+      isOutputLandscape ? min(frameWidth, frameHeight) : max(frameWidth, frameHeight))
+    return (width: width, height: height)
   }
 }
