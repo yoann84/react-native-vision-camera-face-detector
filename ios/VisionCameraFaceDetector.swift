@@ -119,11 +119,6 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     var width = boundingBox.width
     var height = boundingBox.height
 
-    print("Before transformation:")
-    print("x: \(x), y: \(y), width: \(width), height: \(height)")
-    print("sourceWidth: \(sourceWidth), sourceHeight: \(sourceHeight)")
-    print("Current outputOrientation: \(outputOrientation)")
-
     switch outputOrientation {
     case "landscape-right":
       break
@@ -156,9 +151,6 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
         "y": y,
       ]
     }
-
-    print("After transformation:")
-    print("x: \(x), y: \(y), width: \(width), height: \(height)")
 
     // Apply scaling after transformation for non-portrait orientations
     return [
