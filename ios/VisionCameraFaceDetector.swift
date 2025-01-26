@@ -151,7 +151,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       // "portrait" or any other orientation defaults to our base case
       // Transform from landscape-right frame to portrait display
       let newX = y
-      let newY = sourceWidth - (x + width)
+      let newY = x
       x = newX
       y = newY
       let temp = width
