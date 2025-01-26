@@ -119,6 +119,8 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     var width = boundingBox.width
     var height = boundingBox.height
 
+    print("outputOrientation: \(outputOrientation)")
+
     switch outputOrientation {
     case "landscape-right":
       // Need to transform from our base case (portrait) to landscape-right
