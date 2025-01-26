@@ -148,20 +148,24 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       height = temp
 
     case "portrait":
-      let newX = y
-      let newY = sourceWidth - (x + width)
-      x = newX
-      y = newY
+      let leftX = sourceWidth - (x + width)
+      let leftY = sourceHeight - (y + height)
+
+      // Then rotate 90° clockwise from landscape-left to portrait
+      x = leftY  // y-coordinate becomes x-coordinate
+      y = leftX  // x-coordinate becomes y-coordinate
       let temp = width
       width = height
       height = temp
 
-    default:  // "portrait" or any other orientation defaults to our base case
-      // Using the original working transformation for portrait
-      let newX = y
-      let newY = sourceWidth - (x + width)
-      x = newX
-      y = newY
+    default:
+      // First transform to landscape-left
+      let leftX = sourceWidth - (x + width)
+      let leftY = sourceHeight - (y + height)
+
+      // Then rotate 90° clockwise from landscape-left to portrait
+      x = sourceHeight - leftY
+      y = leftX  // x-coordinate becomes y-coordinate
       let temp = width
       width = height
       height = temp
