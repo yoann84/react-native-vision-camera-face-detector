@@ -126,19 +126,13 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
 
     switch outputOrientation {
     case "landscape-right":
-      // Need to transform from our base case (portrait) to landscape-right
-      // Which means rotating 90° counterclockwise from portrait
       break
 
     case "landscape-left":
-      // Need to transform from our base case (portrait) to landscape-left
-      // Which means rotating 90° clockwise from portrait
       x = sourceWidth - (x + width)
       y = sourceHeight - (y + height)
 
     case "portrait-upside-down":
-      // Need to transform from our base case (portrait) to upside-down
-      // Which means rotating 180° from portrait
       let newX = sourceHeight - (y + height)
       let newY = x
       x = newX
@@ -150,8 +144,11 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     default:
       // "portrait" or any other orientation defaults to our base case
       // Transform from landscape-right frame to portrait display
+      // When rotating -90°:
+      // - New x becomes the y coordinate
+      // - New y becomes the inverted x coordinate (sourceWidth - (x + width))
       let newX = y
-      let newY = x
+      let newY = sourceWidth - (x + width)
       x = newX
       y = newY
       let temp = width
