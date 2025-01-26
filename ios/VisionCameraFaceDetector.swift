@@ -126,19 +126,13 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
 
     switch outputOrientation {
     case "landscape-right":
-      // Need to transform from our base case (portrait) to landscape-right
-      // Which means rotating 90° counterclockwise from portrait
       break
 
     case "landscape-left":
-      // Need to transform from our base case (portrait) to landscape-left
-      // Which means rotating 90° clockwise from portrait
       x = sourceWidth - (x + width)
       y = sourceHeight - (y + height)
 
     case "portrait-upside-down":
-      // Need to transform from our base case (portrait) to upside-down
-      // Which means rotating 180° from portrait
       let newX = sourceHeight - (y + height)
       let newY = x
       x = newX
@@ -147,33 +141,26 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       width = height
       height = temp
 
-    case "portrait":
-      let leftX = sourceWidth - (x + width)
-      let leftY = sourceHeight - (y + height)
+    default:  // "portrait"
+      let newX = y * scaleX
+      let newY = x * scaleY
+      x = newX
+      y = newY
+      width = width * scaleX
+      height = height * scaleY
 
-      // Then rotate 90° clockwise from landscape-left to portrait
-      x = leftY  // y-coordinate becomes x-coordinate
-      y = leftX  // x-coordinate becomes y-coordinate
-      let temp = width
-      width = height
-      height = temp
-
-    default:
-      // First transform to landscape-left
-      let leftX = sourceWidth - (x + width)
-      let leftY = sourceHeight - (y + height)
-
-      // Then rotate 90° clockwise from landscape-left to portrait
-      x = sourceHeight - leftY
-      y = leftX  // x-coordinate becomes y-coordinate
-      let temp = width
-      width = height
-      height = temp
+      return [
+        "width": width,
+        "height": height,
+        "x": (-x + sourceWidth * scaleX) - width,
+        "y": y,
+      ]
     }
+
     print("After transformation:")
     print("x: \(x), y: \(y), width: \(width), height: \(height)")
 
-    // Apply scaling after transformation
+    // Apply scaling after transformation for non-portrait orientations
     return [
       "width": width * scaleX,
       "height": height * scaleY,
