@@ -114,38 +114,39 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
   ) -> [String: Any] {
     let boundingBox = face.frame
 
-    // First, get the raw coordinates
     var x = boundingBox.origin.x
     var y = boundingBox.origin.y
     var width = boundingBox.width
     var height = boundingBox.height
 
-    // Transform coordinates based on outputOrientation
     switch outputOrientation {
-    case "portrait":
-      // In portrait, we need to swap coordinates because frame is in landscape-right
-      // but we want to display in portrait
-      let newX = y
-      let newY = sourceWidth - (x + width)
+    case "landscape-right":
+      // Need to transform from our base case (portrait) to landscape-right
+      // Which means rotating 90° counterclockwise from portrait
+      break
+
+    case "landscape-left":
+      // Need to transform from our base case (portrait) to landscape-left
+      // Which means rotating 90° clockwise from portrait
+      x = sourceWidth - (x + width)
+      y = sourceHeight - (y + height)
+
+    case "portrait-upside-down":
+      // Need to transform from our base case (portrait) to upside-down
+      // Which means rotating 180° from portrait
+      let newX = sourceHeight - (y + height)
+      let newY = x
       x = newX
       y = newY
       let temp = width
       width = height
       height = temp
 
-    case "landscape-right":
-      // No transformation needed as this matches the frame's native orientation
-      break
-
-    case "landscape-left":
-      // Need to rotate 180° from landscape-right
-      x = sourceWidth - (x + width)
-      y = sourceHeight - (y + height)
-
-    case "portrait-upside-down":
-      // Rotate 180° from normal portrait
-      let newX = sourceHeight - (y + height)
-      let newY = x
+    default:
+      // "portrait" or any other orientation defaults to our base case
+      // Transform from landscape-right frame to portrait display
+      let newX = y
+      let newY = sourceWidth - (x + width)
       x = newX
       y = newY
       let temp = width
