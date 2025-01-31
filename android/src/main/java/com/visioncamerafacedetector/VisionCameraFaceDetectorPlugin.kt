@@ -95,8 +95,7 @@ class VisionCameraFaceDetectorPlugin(
   ): Map<String, Any> {
     val bounds: MutableMap<String, Any> = HashMap()
    
-    // Log raw input
-    println("Raw bounds - left: ${boundingBox.left}, top: ${boundingBox.top}, width: ${boundingBox.width()}, height: ${boundingBox.height()}")
+
 
     // Scale dimensions first
     val width = boundingBox.width().toDouble() * scale
@@ -104,9 +103,7 @@ class VisionCameraFaceDetectorPlugin(
     val x = boundingBox.left.toDouble() * scale
     val y = boundingBox.top.toDouble() * scale
 
-    println("After scaling - x: $x, y: $y, width: $width, height: $height")
-    println("sourceWidth: $sourceWidth, sourceHeight: $sourceHeight")
-    println("orientation: $orientation")
+
 
 
     when(orientation) {
@@ -131,7 +128,6 @@ class VisionCameraFaceDetectorPlugin(
     bounds["width"] = width
     bounds["height"] = height
     
-    println("Final bounds - x: ${bounds["x"]}, y: ${bounds["y"]}, width: ${bounds["width"]}, height: ${bounds["height"]}")
     return bounds
   }
 

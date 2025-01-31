@@ -114,6 +114,8 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
   ) -> [String: Any] {
     let boundingBox = face.frame
 
+    var scale: CGFloat = scaleX > scaleY ? scaleX : scaleY
+
     var x = boundingBox.origin.x
     var y = boundingBox.origin.y
     var width = boundingBox.width
