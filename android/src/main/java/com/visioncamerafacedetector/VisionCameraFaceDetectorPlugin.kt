@@ -94,13 +94,6 @@ class VisionCameraFaceDetectorPlugin(
     scale: Double
   ): Map<String, Any> {
     val bounds: MutableMap<String, Any> = HashMap()
-     
-    val scale = when (orientation) {
-        0, 180 -> maxOf(scaleX, scaleY)  // Portrait modes
-        90, 270 -> maxOf(scaleX, scaleY)  // Landscape modes
-        else -> maxOf(scaleX, scaleY)
-    }
-    
    
     // Log raw input
     println("Raw bounds - left: ${boundingBox.left}, top: ${boundingBox.top}, width: ${boundingBox.width()}, height: ${boundingBox.height()}")
