@@ -95,16 +95,11 @@ class VisionCameraFaceDetectorPlugin(
   ): Map<String, Any> {
     val bounds: MutableMap<String, Any> = HashMap()
    
-
-
     // Scale dimensions first
     val width = boundingBox.width().toDouble() * scale
     val height = boundingBox.height().toDouble() * scale
     val x = boundingBox.left.toDouble() * scale
     val y = boundingBox.top.toDouble() * scale
-
-
-
 
     when(orientation) {
         0 -> {  // PORTRAIT
