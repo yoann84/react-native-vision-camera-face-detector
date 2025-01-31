@@ -320,7 +320,7 @@ class VisionCameraFaceDetectorPlugin(
 
         if (runLandmarks) {
           map["landmarks"] = processLandmarks(
-            face,ave 
+            face, 
             scaleX,
             scaleY
           )
