@@ -95,37 +95,36 @@ class VisionCameraFaceDetectorPlugin(
     scaleY: Double
   ): Map<String, Any> {
     val bounds: MutableMap<String, Any> = HashMap()
-    val width = boundingBox.width().toDouble()
-    val height = boundingBox.height().toDouble()
-    val x = boundingBox.left.toDouble()
-    val y = boundingBox.top.toDouble()
+    // Scale dimensions first, like in iOS
+    val width = boundingBox.width().toDouble() * scaleX
+    val height = boundingBox.height().toDouble() * scaleY
+    val x = boundingBox.left.toDouble() * scaleX
+    val y = boundingBox.top.toDouble() * scaleY
 
     println("Before transform - x: $x, y: $y, width: $width, height: $height")
     println("sourceWidth: $sourceWidth, sourceHeight: $sourceHeight")
     println("orientation: $orientation")
 
     when(orientation) {
-        0 -> {  // PORTRAIT (rotate 90° clockwise from landscape-left)
-            bounds["x"] = sourceHeight - (y + height)  // Correct
-            bounds["y"] = x                           // Correct
-            // When rotating 90° clockwise:
-            // - y-coordinate becomes negative x-coordinate (inverted from top)
-            // - x-coordinate becomes y-coordinate
+        0 -> {  // PORTRAIT
+        bounds["x"] = (-x + sourceWidth) - width  // Invert x and adjust for width
+        bounds["y"] = y
         }
-        90 -> {  // LANDSCAPE_RIGHT (rotate 180° from landscape-left)
+        90 -> {  // LANDSCAPE_RIGHT
             bounds["x"] = sourceWidth - (x + width)
             bounds["y"] = sourceHeight - (y + height)
         }
-        180 -> {  // PORTRAIT_UPSIDE_DOWN (rotate 270° clockwise from landscape-left)
+        180 -> {  // PORTRAIT_UPSIDE_DOWN
             bounds["x"] = y
             bounds["y"] = sourceWidth - (x + width)
         }
-        270 -> {  // LANDSCAPE_LEFT (base orientation)
+        270 -> {  // LANDSCAPE_LEFT
             bounds["x"] = x
             bounds["y"] = y
         }
     }
 
+    // No need to scale again since we scaled at the beginning
     bounds["width"] = width
     bounds["height"] = height
     
