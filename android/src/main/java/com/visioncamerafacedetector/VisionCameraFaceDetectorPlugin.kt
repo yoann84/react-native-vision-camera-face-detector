@@ -97,7 +97,6 @@ class VisionCameraFaceDetectorPlugin(
    
     // Log raw input
     println("Raw bounds - left: ${boundingBox.left}, top: ${boundingBox.top}, width: ${boundingBox.width()}, height: ${boundingBox.height()}")
-    println("Raw scale - scaleX: $scaleX, scaleY: $scaleY")
 
     // Scale dimensions first
     val width = boundingBox.width().toDouble() * scale
@@ -318,9 +317,9 @@ class VisionCameraFaceDetectorPlugin(
 
       // Choose scale based on outputOrientation
       val finalScale = when (outputOrientation) {
-          "portrait", "portrait-upside-down" -> baseScaleY  // Use Y scale for portrait modes
-          "landscape-left", "landscape-right" -> baseScaleX  // Use X scale for landscape modes
-          else -> baseScaleY  // Default to Y scale for portrait as fallback
+          "portrait", "portrait-upside-down" -> scaleY  // Use Y scale for portrait modes
+          "landscape-left", "landscape-right" -> scaleX  // Use X scale for landscape modes
+          else -> scaleY  // Default to Y scale for portrait as fallback
       }
       
       val task = faceDetector!!.process(image)
