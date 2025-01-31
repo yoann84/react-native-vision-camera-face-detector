@@ -119,8 +119,8 @@ class VisionCameraFaceDetectorPlugin(
             bounds["y"] = sourceWidth - (x + width)
         }
         270 -> {  // LANDSCAPE_LEFT
-            bounds["x"] = x
-            bounds["y"] = y
+            bounds["x"] = sourceWidth - (x + width)  // Mirror x-axis
+            bounds["y"] = y                          // Keep y as is
         }
     }
 
