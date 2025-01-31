@@ -90,51 +90,49 @@ class VisionCameraFaceDetectorPlugin(
     boundingBox: Rect,
     sourceWidth: Double,
     sourceHeight: Double,
-    orientation: Orientation,
+    orientation: Int,
     scaleX: Double,
     scaleY: Double
   ): Map<String, Any> {
     val bounds: MutableMap<String, Any> = HashMap()
-    val width = boundingBox.width().toDouble() * scaleX
-    val height = boundingBox.height().toDouble() * scaleY
-    val x = boundingBox.left.toDouble() * scaleX
-    val y = boundingBox.top.toDouble() * scaleY
+    val width = boundingBox.width().toDouble()
+    val height = boundingBox.height().toDouble()
+    val x = boundingBox.left.toDouble()
+    val y = boundingBox.top.toDouble()
 
-   when(orientation) {
-      Orientation.PORTRAIT -> {
-        // device is portrait
-        bounds["width"] = width
-        bounds["height"] = height
-        bounds["x"] = (-y + sourceWidth * scaleX) - width
-        bounds["y"] = (-x + sourceHeight * scaleY) - height
-      }
-      Orientation.LANDSCAPE_LEFT -> {
-        // device is landscape right
-        bounds["width"] = width
-        bounds["height"] = height
-        bounds["x"] = (-x + sourceWidth * scaleX) - width
-        bounds["y"] = y
-      }
-      Orientation.PORTRAIT_UPSIDE_DOWN -> {
-        // device is portrait upside down
-        bounds["width"] = width
-        bounds["height"] = height
-        bounds["x"] = y
-        bounds["y"] = x
-      }
-      Orientation.LANDSCAPE_RIGHT -> {
-        // device is landscape left
-        bounds["width"] = width
-        bounds["height"] = height
-        bounds["x"] = x
-        bounds["y"] = (-y + sourceHeight * scaleY) - height
-      }
+    println("Before transform - x: $x, y: $y, width: $width, height: $height")
+    println("sourceWidth: $sourceWidth, sourceHeight: $sourceHeight")
+    println("orientation: $orientation")
+
+    when(orientation) {
+        0 -> {  // PORTRAIT (rotate 90° clockwise from landscape-left)
+            bounds["x"] = sourceHeight - (y + height)  // Correct
+            bounds["y"] = x                           // Correct
+            // When rotating 90° clockwise:
+            // - y-coordinate becomes negative x-coordinate (inverted from top)
+            // - x-coordinate becomes y-coordinate
+        }
+        90 -> {  // LANDSCAPE_RIGHT (rotate 180° from landscape-left)
+            bounds["x"] = sourceWidth - (x + width)
+            bounds["y"] = sourceHeight - (y + height)
+        }
+        180 -> {  // PORTRAIT_UPSIDE_DOWN (rotate 270° clockwise from landscape-left)
+            bounds["x"] = y
+            bounds["y"] = sourceWidth - (x + width)
+        }
+        270 -> {  // LANDSCAPE_LEFT (base orientation)
+            bounds["x"] = x
+            bounds["y"] = y
+        }
     }
 
     bounds["width"] = width
     bounds["height"] = height
+    
+    println("After transform - x: ${bounds["x"]}, y: ${bounds["y"]}")
     return bounds
   }
+
 
   private fun processLandmarks(
     face: Face,
@@ -278,6 +276,23 @@ class VisionCameraFaceDetectorPlugin(
     }
   }
 
+  private fun getNormalizedDimensions(
+    frameWidth: Double,
+    frameHeight: Double,
+    outputOrientation: String
+  ): Pair<Double, Double> {
+    val isOutputLandscape = outputOrientation.contains("landscape")
+    val width = if (isOutputLandscape) 
+      maxOf(frameWidth, frameHeight) 
+    else 
+      minOf(frameWidth, frameHeight)
+    val height = if (isOutputLandscape) 
+      minOf(frameWidth, frameHeight) 
+    else 
+      maxOf(frameWidth, frameHeight)
+    return Pair(width, height)
+  }
+
   override fun callback(
     frame: Frame,
     params: Map<String, Any>?
@@ -287,11 +302,17 @@ class VisionCameraFaceDetectorPlugin(
     try {
       val orientation = getOrientation(frame.orientation)
       val image = InputImage.fromMediaImage(frame.image, orientation)
-      // we need to invert sizes as frame is always -90deg rotated
-      val width = image.height.toDouble()
-      val height = image.width.toDouble()
-      val scaleX = if(autoScale) windowWidth / width else 1.0
-      val scaleY = if(autoScale) windowHeight / height else 1.0
+      
+      // Get normalized dimensions
+      val normalizedDimensions = getNormalizedDimensions(
+        image.height.toDouble(),  // we use height as width because frame is rotated
+        image.width.toDouble(),   // we use width as height because frame is rotated
+        outputOrientation
+      )
+      
+      val scaleX = if(autoScale) windowWidth / normalizedDimensions.first else 1.0
+      val scaleY = if(autoScale) windowHeight / normalizedDimensions.second else 1.0
+      
       val task = faceDetector!!.process(image)
       val faces = Tasks.await(task)
       faces.forEach{face ->
@@ -299,7 +320,7 @@ class VisionCameraFaceDetectorPlugin(
 
         if (runLandmarks) {
           map["landmarks"] = processLandmarks(
-            face,
+            face,ave 
             scaleX,
             scaleY
           )
@@ -328,9 +349,9 @@ class VisionCameraFaceDetectorPlugin(
         map["yawAngle"] = face.headEulerAngleY.toDouble()
         map["bounds"] = processBoundingBox(
           face.boundingBox,
-          width,
-          height,
-          frame.orientation,
+          normalizedDimensions.first,  // normalized width
+          normalizedDimensions.second, // normalized height
+          orientation,
           scaleX,
           scaleY
         )
