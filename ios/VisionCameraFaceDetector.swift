@@ -280,11 +280,6 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
 
       let faces: [Face] = try faceDetector!.results(in: image)
 
-      print(
-        "frame width: ", frame.width, "frame height: ", frame.height, "window width: ", windowWidth,
-        "window height: ", windowHeight, "width face: ", faces[0].frame.width, "height face: ",
-        faces[0].frame.height)
-
       let transform = transformMatrix(
         frameWidth: frame.width,
         frameHeight: frame.height,
