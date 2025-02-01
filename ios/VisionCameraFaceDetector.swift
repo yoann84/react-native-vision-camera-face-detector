@@ -130,27 +130,22 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       y = sourceHeight - (y + height)
 
     case "portrait-upside-down":
-      let newX = sourceHeight - (y + height)
-      let newY = x
-      x = newX
-      y = newY
-      let temp = width
-      width = height
-      height = temp
+
+      x = sourceHeight - (y + height)
+      y = x
+
+      (width, height) = (height, width)
 
     default:  // "portrait"
-      let newX = y * scaleX
-      let newY = x * scaleY
-      x = newX
-      y = newY
-      width = width * scaleX
-      height = height * scaleY
+
+      let rotatedX = y * scaleX
+      let rotatedY = x * scaleY
 
       return [
-        "width": width,
-        "height": height,
-        "x": (-x + sourceWidth * scaleX) - width,
-        "y": y,
+        "width": width * scaleX,
+        "height": height * scaleY,
+        "x": sourceWidth * scaleX - rotatedX - (width * scaleX),  // Mirror and offset
+        "y": rotatedY,
       ]
     }
 
