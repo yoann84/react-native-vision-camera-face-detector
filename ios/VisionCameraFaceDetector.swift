@@ -10,7 +10,6 @@ import VisionCamera
 @objc(VisionCameraFaceDetector)
 public class VisionCameraFaceDetector: FrameProcessorPlugin {
   // detection props
-  private var autoScale = false
   private var faceDetector: FaceDetector! = nil
   private var runLandmarks = false
   private var runClassifications = false
@@ -18,19 +17,13 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
   private var trackingEnabled = false
   private var windowWidth = 1.0
   private var windowHeight = 1.0
-  private var outputOrientation: String = "portrait"
 
-  public override init(
+  override public init(
     proxy: VisionCameraProxyHolder,
     options: [AnyHashable: Any]! = [:]
   ) {
     super.init(proxy: proxy, options: options)
     let config = getConfig(withArguments: options)
-
-    if let outputOrientationParam = config?["outputOrientation"] as? String {
-      outputOrientation = outputOrientationParam
-
-    }
 
     let windowWidthParam = config?["windowWidth"] as? Double
     if windowWidthParam != nil && windowWidthParam != windowWidth {
@@ -41,9 +34,6 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     if windowHeightParam != nil && windowHeightParam != windowHeight {
       windowHeight = CGFloat(windowHeightParam!)
     }
-
-    // handle auto scaling
-    autoScale = config?["autoScale"] as? Bool == true
 
     // initializes faceDetector on creation
     let minFaceSize = 0.15
@@ -93,7 +83,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     if arguments.count > 0 {
       let config = arguments.map { dictionary in
         Dictionary(
-          uniqueKeysWithValues: dictionary.map { (key, value) in
+          uniqueKeysWithValues: dictionary.map { key, value in
             (key as? String ?? "", value)
           })
       }
@@ -104,104 +94,78 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
     return nil
   }
 
+  private func transformMatrix(
+    frameWidth: Int,
+    frameHeight: Int,
+    viewWidth: CGFloat,
+    viewHeight: CGFloat
+  ) -> CGAffineTransform {
+    let imageWidth = CGFloat(frameWidth)
+    let imageHeight = CGFloat(frameHeight)
+
+    let imageViewAspectRatio = viewWidth / viewHeight
+    let imageAspectRatio = imageWidth / imageHeight
+    let scale =
+      (imageViewAspectRatio > imageAspectRatio)
+      ? viewHeight / imageHeight
+      : viewWidth / imageWidth
+
+    let scaledImageWidth = imageWidth * scale
+    let scaledImageHeight = imageHeight * scale
+    let xValue = (viewWidth - scaledImageWidth) / CGFloat(2.0)
+    let yValue = (viewHeight - scaledImageHeight) / CGFloat(2.0)
+
+    var transform = CGAffineTransform.identity.translatedBy(x: xValue, y: yValue)
+    transform = transform.scaledBy(x: scale, y: scale)
+    return transform
+  }
+
   func processBoundingBox(
     from face: Face,
-    sourceWidth: CGFloat,
-    sourceHeight: CGFloat,
-    orientation: UIImage.Orientation,
-    scaleX: CGFloat,
-    scaleY: CGFloat
+    transform: CGAffineTransform
   ) -> [String: Any] {
-    let boundingBox = face.frame
+    // Apply transform to the face frame
+    let transformedRect = face.frame.applying(transform)
 
-    var scale: CGFloat = scaleX > scaleY ? scaleX : scaleY
-
-    var x = boundingBox.origin.x
-    var y = boundingBox.origin.y
-    var width = boundingBox.width
-    var height = boundingBox.height
-
-    switch outputOrientation {
-    case "landscape-right":
-      break
-
-    case "landscape-left":
-      x = sourceWidth - (x + width)
-      y = sourceHeight - (y + height)
-
-    case "portrait-upside-down":
-      let newX = sourceHeight - (y + height)
-      let newY = x
-      x = newX
-      y = newY
-      let temp = width
-      width = height
-      height = temp
-
-    default:  // "portrait"
-      let newX = y * scaleX
-      let newY = x * scaleY
-      x = newX
-      y = newY
-      width = width * scaleX
-      height = height * scaleY
-
-      return [
-        "width": width,
-        "height": height,
-        "x": (-x + sourceWidth * scaleX) - width,
-        "y": y,
-      ]
-    }
-
-    // Apply scaling after transformation for non-portrait orientations
     return [
-      "width": width * scaleX,
-      "height": height * scaleY,
-      "x": x * scaleX,
-      "y": y * scaleY,
+      "width": transformedRect.width,
+      "height": transformedRect.height,
+      "x": transformedRect.origin.x,
+      "y": transformedRect.origin.y,
     ]
+  }
+
+  private func pointFrom(_ visionPoint: VisionPoint) -> CGPoint {
+    return CGPoint(x: visionPoint.x, y: visionPoint.y)
   }
 
   func processLandmarks(
     from face: Face,
-    scaleX: CGFloat,
-    scaleY: CGFloat
+    transform: CGAffineTransform
   ) -> [String: [String: CGFloat?]] {
-    let faceLandmarkTypes = [
-      FaceLandmarkType.leftCheek,
-      FaceLandmarkType.leftEar,
-      FaceLandmarkType.leftEye,
-      FaceLandmarkType.mouthBottom,
-      FaceLandmarkType.mouthLeft,
-      FaceLandmarkType.mouthRight,
-      FaceLandmarkType.noseBase,
-      FaceLandmarkType.rightCheek,
-      FaceLandmarkType.rightEar,
-      FaceLandmarkType.rightEye,
-    ]
-
-    let faceLandmarksTypesStrings = [
-      "LEFT_CHEEK",
-      "LEFT_EAR",
-      "LEFT_EYE",
-      "MOUTH_BOTTOM",
-      "MOUTH_LEFT",
-      "MOUTH_RIGHT",
-      "NOSE_BASE",
-      "RIGHT_CHEEK",
-      "RIGHT_EAR",
-      "RIGHT_EYE",
+    let faceLandmarkTypes: [FaceLandmarkType] = [
+      .leftCheek,
+      .leftEar,
+      .leftEye,
+      .mouthBottom,
+      .mouthLeft,
+      .mouthRight,
+      .noseBase,
+      .rightCheek,
+      .rightEar,
+      .rightEye,
     ]
 
     var faceLandMarksTypesMap: [String: [String: CGFloat?]] = [:]
-    for i in 0..<faceLandmarkTypes.count {
-      let landmark = face.landmark(ofType: faceLandmarkTypes[i])
-      let position = [
-        "x": landmark?.position.x ?? 0.0 * scaleX,
-        "y": landmark?.position.y ?? 0.0 * scaleY,
-      ]
-      faceLandMarksTypesMap[faceLandmarksTypesStrings[i]] = position
+    for landmarkType in faceLandmarkTypes {
+      if let landmark = face.landmark(ofType: landmarkType) {
+        let point = pointFrom(landmark.position)
+        let transformedPoint = point.applying(transform)
+        faceLandMarksTypesMap[landmarkType.rawValue] = [
+          "x": transformedPoint.x,
+          "y": transformedPoint.y,
+        ]
+      }
     }
 
     return faceLandMarksTypesMap
@@ -209,144 +173,137 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
 
   func processFaceContours(
     from face: Face,
-    scaleX: CGFloat,
-    scaleY: CGFloat
+    transform: CGAffineTransform
   ) -> [String: [[String: CGFloat]]] {
-    let faceContoursTypes = [
-      FaceContourType.face,
-      FaceContourType.leftCheek,
-      FaceContourType.leftEye,
-      FaceContourType.leftEyebrowBottom,
-      FaceContourType.leftEyebrowTop,
-      FaceContourType.lowerLipBottom,
-      FaceContourType.lowerLipTop,
-      FaceContourType.noseBottom,
-      FaceContourType.noseBridge,
-      FaceContourType.rightCheek,
-      FaceContourType.rightEye,
-      FaceContourType.rightEyebrowBottom,
-      FaceContourType.rightEyebrowTop,
-      FaceContourType.upperLipBottom,
-      FaceContourType.upperLipTop,
-    ]
-
-    let faceContoursTypesStrings = [
-      "FACE",
-      "LEFT_CHEEK",
-      "LEFT_EYE",
-      "LEFT_EYEBROW_BOTTOM",
-      "LEFT_EYEBROW_TOP",
-      "LOWER_LIP_BOTTOM",
-      "LOWER_LIP_TOP",
-      "NOSE_BOTTOM",
-      "NOSE_BRIDGE",
-      "RIGHT_CHEEK",
-      "RIGHT_EYE",
-      "RIGHT_EYEBROW_BOTTOM",
-      "RIGHT_EYEBROW_TOP",
-      "UPPER_LIP_BOTTOM",
-      "UPPER_LIP_TOP",
+    let faceContoursTypes: [FaceContourType] = [
+      .face,
+      .leftCheek,
+      .leftEye,
+      .leftEyebrowBottom,
+      .leftEyebrowTop,
+      .lowerLipBottom,
+      .lowerLipTop,
+      .noseBottom,
+      .noseBridge,
+      .rightCheek,
+      .rightEye,
+      .rightEyebrowBottom,
+      .rightEyebrowTop,
+      .upperLipBottom,
+      .upperLipTop,
     ]
 
     var faceContoursTypesMap: [String: [[String: CGFloat]]] = [:]
-    for i in 0..<faceContoursTypes.count {
-      let contour = face.contour(ofType: faceContoursTypes[i])
-      var pointsArray: [[String: CGFloat]] = []
+    for contourType in faceContoursTypes {
+      if let contour = face.contour(ofType: contourType) {
+        var pointsArray: [[String: CGFloat]] = []
 
-      if let points = contour?.points {
-        for point in points {
-          let currentPointsMap = [
-            "x": point.x * scaleX,
-            "y": point.y * scaleY,
-          ]
-
-          pointsArray.append(currentPointsMap)
+        for point in contour.points {
+          let cgPoint = pointFrom(point)
+          let transformedPoint = cgPoint.applying(transform)
+          pointsArray.append([
+            "x": transformedPoint.x,
+            "y": transformedPoint.y,
+          ])
         }
 
-        faceContoursTypesMap[faceContoursTypesStrings[i]] = pointsArray
+        faceContoursTypesMap[contourType.rawValue] = pointsArray
       }
     }
 
     return faceContoursTypesMap
   }
 
-  private func orientationToDegrees(_ orientation: UIImage.Orientation) -> Int {
-    switch orientation {
-    case .up: return 0
-    case .right: return 270  // return left
-    case .down: return 180  // return down
-    case .left: return 90  // return right
-    default: return 0
-    }
-  }
-
-  private func degreesToOrientation(_ degrees: Int) -> UIImage.Orientation {
-    switch (degrees + 360) % 360 {
-    case 0: return .up
-    case 90: return .right
-    case 180: return .down
-    case 270: return .left
-    default: return .up
-    }
-  }
-
-  func getOrientation(orientation: UIImage.Orientation) -> UIImage.Orientation {
-    // Convert current orientation to degrees
-    let currentDegrees = orientationToDegrees(orientation)
-
-    // Add additional rotation based on outputOrientation
-    let additionalDegrees =
-      switch outputOrientation {
-      case "landscape-left": 90  // home button on left
-      case "landscape-right": 270  // home button on right
-      case "portrait-upside-down": 180  // home button on top
-      case "portrait": 0  // home button on bottom
-      default: 0  // "portrait" or default
+  private func currentUIOrientation() -> UIDeviceOrientation {
+    let deviceOrientation = { () -> UIDeviceOrientation in
+      switch UIApplication.shared.statusBarOrientation {
+      case .landscapeLeft:
+        return .landscapeRight
+      case .landscapeRight:
+        return .landscapeLeft
+      case .portraitUpsideDown:
+        return .portraitUpsideDown
+      case .portrait, .unknown:
+        return .portrait
+      @unknown default:
+        return .portrait
       }
+    }
 
-    // Combine rotations and convert back to UIImage.Orientation
-    return degreesToOrientation((currentDegrees + additionalDegrees) % 360)
+    guard Thread.isMainThread else {
+      var currentOrientation: UIDeviceOrientation = .portrait
+      DispatchQueue.main.sync {
+        currentOrientation = deviceOrientation()
+      }
+      return currentOrientation
+    }
+    return deviceOrientation()
   }
 
-  public override func callback(
+  private func imageOrientation(
+    cameraPosition: AVCaptureDevice.Position
+  ) -> UIImage.Orientation {
+    var deviceOrientation = UIDevice.current.orientation
+    if deviceOrientation == .faceDown || deviceOrientation == .faceUp
+      || deviceOrientation == .unknown
+    {
+      deviceOrientation = currentUIOrientation()
+    }
+
+    switch deviceOrientation {
+    case .portrait:
+      return cameraPosition == .front ? .leftMirrored : .right
+    case .landscapeLeft:
+      return cameraPosition == .front ? .downMirrored : .up
+    case .portraitUpsideDown:
+      return cameraPosition == .front ? .rightMirrored : .left
+    case .landscapeRight:
+      return cameraPosition == .front ? .upMirrored : .down
+    case .faceDown, .faceUp, .unknown:
+      return .up
+    @unknown default:
+      return .up
+    }
+  }
+
+  override public func callback(
     _ frame: Frame,
     withArguments arguments: [AnyHashable: Any]?
   ) -> Any {
     var result: [Any] = []
 
     do {
-      // Create normalized frame dimensions based on the desired output orientation
-      let normalizedDimensions = getNormalizedDimensions(
-        frameWidth: frame.width,
-        frameHeight: frame.height,
-        outputOrientation: outputOrientation
+      let image = VisionImage(buffer: frame.buffer)
+      image.orientation = imageOrientation(
+        cameraPosition: frame.isMirrored ? .front : .back
       )
 
-      let image = VisionImage(buffer: frame.buffer)
-      // Set the correct orientation for ML Kit processing
-      image.orientation = getOrientation(orientation: frame.orientation)
-
-      // Use normalized dimensions for scaling
-      var scaleX: CGFloat
-      var scaleY: CGFloat
-      if autoScale {
-        scaleX = windowWidth / normalizedDimensions.width
-        scaleY = windowHeight / normalizedDimensions.height
-      } else {
-        scaleX = CGFloat(1)
-        scaleY = CGFloat(1)
-      }
-
-      // Process faces with normalized coordinates
       let faces: [Face] = try faceDetector!.results(in: image)
+
+      print(
+        "frame width: ", frame.width, "frame height: ", frame.height, "window width: ", windowWidth,
+        "window height: ", windowHeight, "width face: ", faces[0].frame.width, "height face: ",
+        faces[0].frame.height)
+
+      let transform = transformMatrix(
+        frameWidth: frame.width,
+        frameHeight: frame.height,
+        viewWidth: windowWidth,
+        viewHeight: windowHeight
+      )
+
       for face in faces {
+
         var map: [String: Any] = [:]
+        map["bounds"] = processBoundingBox(
+          from: face,
+          transform: transform
+        )
 
         if runLandmarks {
           map["landmarks"] = processLandmarks(
             from: face,
-            scaleX: scaleX,
-            scaleY: scaleY
+            transform: transform
           )
         }
 
@@ -359,8 +316,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
         if runContours {
           map["contours"] = processFaceContours(
             from: face,
-            scaleX: scaleX,
-            scaleY: scaleY
+            transform: transform
           )
         }
 
@@ -371,32 +327,13 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
         map["rollAngle"] = face.headEulerAngleZ
         map["pitchAngle"] = face.headEulerAngleX
         map["yawAngle"] = face.headEulerAngleY
-        map["bounds"] = processBoundingBox(
-          from: face,
-          sourceWidth: normalizedDimensions.width,
-          sourceHeight: normalizedDimensions.height,
-          orientation: image.orientation,
-          scaleX: scaleX,
-          scaleY: scaleY
-        )
 
         result.append(map)
       }
-    } catch let error {
+    } catch {
       print("Error processing face detection: \(error)")
     }
 
     return result
-  }
-
-  private func getNormalizedDimensions(frameWidth: Int, frameHeight: Int, outputOrientation: String)
-    -> (width: CGFloat, height: CGFloat)
-  {
-    let isOutputLandscape = outputOrientation.contains("landscape")
-    let width = CGFloat(
-      isOutputLandscape ? max(frameWidth, frameHeight) : min(frameWidth, frameHeight))
-    let height = CGFloat(
-      isOutputLandscape ? min(frameWidth, frameHeight) : max(frameWidth, frameHeight))
-    return (width: width, height: height)
   }
 }
