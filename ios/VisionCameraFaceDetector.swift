@@ -137,7 +137,7 @@ public class VisionCameraFaceDetector: FrameProcessorPlugin {
       (width, height) = (height, width)
 
     default:  // "portrait"
-
+      // Rotate 90° counterclockwise
       let rotatedX = y * scaleX
       let rotatedY = x * scaleY
 
