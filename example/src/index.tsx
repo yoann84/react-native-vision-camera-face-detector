@@ -84,6 +84,8 @@ function FaceDetection() {
     height: 0
   })
 
+  console.log(outputOrientation)
+
 
 
   const faceDetectionOptions = useRef<FaceDetectionOptions>( {
@@ -94,7 +96,7 @@ function FaceDetection() {
     autoScale: true,
     contourMode: "all",
     minFaceSize: 0.4,
-   // outputOrientation: outputOrientation,
+    outputOrientation: outputOrientation,
   } ).current
   const isFocused = useIsFocused()
   const appState = useAppState()

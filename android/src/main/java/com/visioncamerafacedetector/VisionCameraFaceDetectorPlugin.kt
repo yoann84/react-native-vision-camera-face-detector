@@ -31,7 +31,6 @@ class VisionCameraFaceDetectorPlugin(
   private var windowWidth = 1.0
   private var windowHeight = 1.0
   private var outputOrientation: String = "portrait"
-
   init {
     // handle auto scaling
     autoScale = options?.get("autoScale").toString() == "true"
@@ -88,40 +87,37 @@ class VisionCameraFaceDetectorPlugin(
 
   private fun processBoundingBox(
     boundingBox: Rect,
-    sourceWidth: Double,
-    sourceHeight: Double,
-    orientation: Int,
-    scale: Double
+    imageWidth: Double,
+    imageHeight: Double,
+    scaleX: Double,
+    scaleY: Double,
+    orientation: Int
   ): Map<String, Any> {
     val bounds: MutableMap<String, Any> = HashMap()
    
-    // Scale dimensions first
-    val width = boundingBox.width().toDouble() * scale
-    val height = boundingBox.height().toDouble() * scale
-    val x = boundingBox.left.toDouble() * scale
-    val y = boundingBox.top.toDouble() * scale
+    // Get raw coordinates from ML Kit (in image space)
+    val rawX = boundingBox.left.toDouble()
+    val rawY = boundingBox.top.toDouble()
+    val rawWidth = boundingBox.width().toDouble()
+    val rawHeight = boundingBox.height().toDouble()
 
-    when(orientation) {
-        0 -> {  // PORTRAIT
-            bounds["x"] = sourceWidth - (x + width)
-            bounds["y"] = y
-        }
-        90 -> {  // LANDSCAPE_RIGHT
-            bounds["x"] = sourceWidth - (x + width)
-            bounds["y"] = sourceHeight - (y + height)
-        }
-        180 -> {  // PORTRAIT_UPSIDE_DOWN
-            bounds["x"] = sourceWidth - (x + width)
-            bounds["y"] = sourceHeight - (y + height)
-        }
-        270 -> {  // LANDSCAPE_LEFT
-            bounds["x"] = sourceWidth - (x + width)
-            bounds["y"] = y
-        }
+    // Apply coordinate transformation based on orientation (for mirroring)
+    val transformedX = when(orientation) {
+        0, 90, 180, 270 -> imageWidth - (rawX + rawWidth)
+        else -> rawX
+    }
+    
+    val transformedY = when(orientation) {
+        0, 270 -> rawY
+        90, 180 -> imageHeight - (rawY + rawHeight)
+        else -> rawY
     }
 
-    bounds["width"] = width
-    bounds["height"] = height
+    // Scale to window space
+    bounds["x"] = transformedX * scaleX
+    bounds["y"] = transformedY * scaleY
+    bounds["width"] = rawWidth * scaleX
+    bounds["height"] = rawHeight * scaleY
     
     return bounds
   }
@@ -159,23 +155,14 @@ class VisionCameraFaceDetectorPlugin(
     val faceLandmarksTypesMap: MutableMap<String, Any> = HashMap()
     for (i in faceLandmarksTypesStrings.indices) {
       val landmark = face.getLandmark(faceLandmarksTypes[i])
-      val landmarkName = faceLandmarksTypesStrings[i]
-      Log.d(
-        TAG,
-        "Getting '$landmarkName' landmark"
-      )
       if (landmark == null) {
-        Log.d(
-          TAG,
-          "Landmark '$landmarkName' is null - going next"
-        )
         continue
       }
       val point = landmark.position
       val currentPointsMap: MutableMap<String, Double> = HashMap()
       currentPointsMap["x"] = point.x.toDouble() * scaleX
       currentPointsMap["y"] = point.y.toDouble() * scaleY
-      faceLandmarksTypesMap[landmarkName] = currentPointsMap
+      faceLandmarksTypesMap[faceLandmarksTypesStrings[i]] = currentPointsMap
     }
 
     return faceLandmarksTypesMap
@@ -223,16 +210,7 @@ class VisionCameraFaceDetectorPlugin(
     val faceContoursTypesMap: MutableMap<String, Any> = HashMap()
     for (i in faceContoursTypesStrings.indices) {
       val contour = face.getContour(faceContoursTypes[i])
-      val contourName = faceContoursTypesStrings[i]
-      Log.d(
-        TAG,
-        "Getting '$contourName' contour"
-      )
       if (contour == null) {
-        Log.d(
-          TAG,
-          "Face contour '$contourName' is null - going next"
-        )
         continue
       }
       val points = contour.points
@@ -244,7 +222,7 @@ class VisionCameraFaceDetectorPlugin(
         pointsMap[j.toString()] = currentPointsMap
       }
 
-      faceContoursTypesMap[contourName] = pointsMap
+      faceContoursTypesMap[faceContoursTypesStrings[i]] = pointsMap
     }
     return faceContoursTypesMap
   }
@@ -252,20 +230,12 @@ class VisionCameraFaceDetectorPlugin(
   private fun getOrientation(
     orientation: Orientation
   ): Int {
-    // First apply default device orientation
-    val rotation = when (orientation) {
+    // Vision Camera already handles sensor orientation, so we only need device rotation
+    return when (orientation) {
       Orientation.PORTRAIT -> 0            
       Orientation.LANDSCAPE_LEFT -> 270     
       Orientation.PORTRAIT_UPSIDE_DOWN -> 180
       Orientation.LANDSCAPE_RIGHT -> 90   
-    }
-    
-    // Then apply additional rotation if specified
-    return when (outputOrientation) {
-      "landscape-left" -> (rotation + 270) % 360    // home button left
-      "landscape-right" -> (rotation + 90) % 360  // home button right
-      "portrait-upside-down" -> (rotation + 180) % 360
-      else -> rotation  // "portrait" or default
     }
   }
 
@@ -306,13 +276,6 @@ class VisionCameraFaceDetectorPlugin(
       val scaleX = if(autoScale) windowWidth / normalizedDimensions.first else 1.0
       val scaleY = if(autoScale) windowHeight / normalizedDimensions.second else 1.0
 
-      // Choose scale based on outputOrientation
-      val finalScale = when (outputOrientation) {
-          "portrait", "portrait-upside-down" -> scaleY  // Use Y scale for portrait modes
-          "landscape-left", "landscape-right" -> scaleX  // Use X scale for landscape modes
-          else -> scaleY  // Default to Y scale for portrait as fallback
-      }
-      
       val task = faceDetector!!.process(image)
       val faces = Tasks.await(task)
       faces.forEach{face ->
@@ -349,10 +312,11 @@ class VisionCameraFaceDetectorPlugin(
         map["yawAngle"] = face.headEulerAngleY.toDouble()
         map["bounds"] = processBoundingBox(
           face.boundingBox,
-          normalizedDimensions.first,  // normalized width
-          normalizedDimensions.second, // normalized height
-          orientation,
-          finalScale
+          normalizedDimensions.first,   // image width from ML Kit
+          normalizedDimensions.second,  // image height from ML Kit
+          scaleX,  // separate X scale
+          scaleY,  // separate Y scale
+          orientation
         )
         result.add(map)
       }
