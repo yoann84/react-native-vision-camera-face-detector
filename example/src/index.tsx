@@ -23,20 +23,21 @@ import { NavigationContainer } from '@react-navigation/native'
 import {
   Camera,
   Face,
-  FaceDetectionOptions
+  FaceDetectionOptions,
+  OrientationOutput
 } from 'react-native-vision-camera-face-detector'
-import Animated, {
-  useAnimatedStyle,
+import  {
   useSharedValue,
-  withTiming
 } from 'react-native-reanimated'
+import { Bounds } from '../../lib/typescript/src'
+import { BoundsAnimatedCameraView } from './BoundAnimated'
 
 /**
  * Entry point component
  *
  * @return {JSX.Element} Component
  */
-function Index(): JSX.Element {
+function Index() {
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -51,7 +52,7 @@ function Index(): JSX.Element {
  *
  * @return {JSX.Element} Component
  */
-function FaceDetection(): JSX.Element {
+function FaceDetection() {
   const {
     width,
     height
@@ -68,19 +69,32 @@ function FaceDetection(): JSX.Element {
     cameraPaused,
     setCameraPaused
   ] = useState<boolean>( false )
+
   const [
-    autoScale,
-    setAutoScale
-  ] = useState<boolean>( true )
-  const [
-    facingFront,
-    setFacingFront
-  ] = useState<boolean>( true )
+    outputOrientation,
+    setOutputOrientation
+  ] = useState<OrientationOutput>('portrait')
+ 
+
+
+  const bounds = useSharedValue<Bounds>({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0
+  })
+
+
+
   const faceDetectionOptions = useRef<FaceDetectionOptions>( {
     performanceMode: 'fast',
     classificationMode: 'all',
     windowWidth: width,
-    windowHeight: height
+    windowHeight: height,
+    autoScale: true,
+    contourMode: "all",
+    minFaceSize: 0.4,
+    outputOrientation: outputOrientation,
   } ).current
   const isFocused = useIsFocused()
   const appState = useAppState()
@@ -89,76 +103,28 @@ function FaceDetection(): JSX.Element {
     isFocused &&
     appState === 'active'
   )
-  const cameraDevice = useCameraDevice( facingFront ? 'front' : 'back' )
-  //
-  // vision camera ref
-  //
+  const cameraDevice = useCameraDevice("front", {
+    supportsDepthCapture: true,
+  });
+
+
   const camera = useRef<VisionCamera>( null )
-  //
-  // face rectangle position
-  //
-  const aFaceW = useSharedValue( 0 )
-  const aFaceH = useSharedValue( 0 )
-  const aFaceX = useSharedValue( 0 )
-  const aFaceY = useSharedValue( 0 )
-  const aRot = useSharedValue( 0 )
-  const animatedStyle = useAnimatedStyle( () => ( {
-    position: 'absolute',
-    borderWidth: 4,
-    borderLeftColor: 'rgb(0,255,0)',
-    borderRightColor: 'rgb(0,255,0)',
-    borderBottomColor: 'rgb(0,255,0)',
-    borderTopColor: 'rgb(255,0,0)',
-    width: withTiming( aFaceW.value, {
-      duration: 100
-    } ),
-    height: withTiming( aFaceH.value, {
-      duration: 100
-    } ),
-    left: withTiming( aFaceX.value, {
-      duration: 100
-    } ),
-    top: withTiming( aFaceY.value, {
-      duration: 100
-    } ),
-    transform: [ {
-      rotate: `${ aRot.value }deg`
-    } ]
-  } ) )
 
   useEffect( () => {
     if ( hasPermission ) return
     requestPermission()
   }, [] )
 
-  /**
-   * Handle camera UI rotation
-   * 
-   * @param {number} rotation Camera rotation
-   */
-  function handleUiRotation(
-    rotation: number
-  ) {
-    aRot.value = rotation
-  }
 
-  /**
-   * Hanldes camera mount error event
-   *
-   * @param {any} error Error event
-   */
+
+
   function handleCameraMountError(
     error: any
   ) {
     console.error( 'camera mount error', error )
   }
 
-  /**
-   * Handle detection result
-   * 
-   * @param {Face[]} faces Detection result 
-   * @returns {void}
-   */
+
   function handleFacesDetected(
     faces: Face[],
     frame: Frame
@@ -170,17 +136,9 @@ function FaceDetection(): JSX.Element {
     // if no faces are detected we do nothing
     if ( Object.keys( faces ).length <= 0 ) return
 
-    const { bounds } = faces[ 0 ]
-    const {
-      width,
-      height,
-      x,
-      y
-    } = bounds
-    aFaceW.value = width
-    aFaceH.value = height
-    aFaceX.value = x
-    aFaceY.value = y
+    const { bounds: faceBounds } = faces[ 0 ]
+    bounds.value = faceBounds
+
 
     // only call camera methods if ref is defined
     if ( camera.current ) {
@@ -206,16 +164,16 @@ function FaceDetection(): JSX.Element {
             device={ cameraDevice }
             onError={ handleCameraMountError }
             faceDetectionCallback={ handleFacesDetected }
-            onUIRotationChanged={ handleUiRotation }
+            androidPreviewViewType="texture-view"
+            onOutputOrientationChanged={(outputOrientation: OrientationOutput) =>
+              setOutputOrientation(outputOrientation)
+            }
             faceDetectionOptions={ {
               ...faceDetectionOptions,
-              autoScale
             } }
           />
 
-          <Animated.View
-            style={ animatedStyle }
-          />
+       <BoundsAnimatedCameraView bounds={bounds} />
 
           { cameraPaused && <Text
             style={ {
@@ -260,24 +218,7 @@ function FaceDetection(): JSX.Element {
         flexDirection: 'column'
       } }
     >
-      <View
-        style={ {
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-around'
-        } }
-      >
-        <Button
-          onPress={ () => setFacingFront( ( current ) => !current ) }
-          title={ 'Toggle Cam' }
-        />
-
-        <Button
-          onPress={ () => setAutoScale( ( current ) => !current ) }
-          title={ `${ autoScale ? 'Disable' : 'Enable' } Scale` }
-        />
-      </View>
+   
       <View
         style={ {
           width: '100%',
