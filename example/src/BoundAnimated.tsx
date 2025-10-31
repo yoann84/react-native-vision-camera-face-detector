@@ -14,7 +14,7 @@ export const BoundsAnimatedCameraView = ({ bounds }: { bounds: SharedValue<Bound
     position: "absolute",
     borderWidth: 4,
     borderLeftColor: "rgb(0,255,0)",
-    borderRightColor: "rgb(0,255,0)",
+    borderRightColor: "rgb(221, 255, 0)",
     borderBottomColor: "rgb(0,255,0)",
     borderTopColor: "rgb(255,0,0)",
     width: withTiming(bounds.value.width, {

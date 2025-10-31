@@ -94,7 +94,7 @@ function FaceDetection() {
     autoScale: true,
     contourMode: "all",
     minFaceSize: 0.4,
-    outputOrientation: outputOrientation,
+   // outputOrientation: outputOrientation,
   } ).current
   const isFocused = useIsFocused()
   const appState = useAppState()
@@ -133,10 +133,15 @@ function FaceDetection() {
       'faces', faces.length,
       'frame', frame.toString()
     )
+
     // if no faces are detected we do nothing
     if ( Object.keys( faces ).length <= 0 ) return
 
+
+
     const { bounds: faceBounds } = faces[ 0 ]
+
+    console.log('faceBounds', faceBounds)
     bounds.value = faceBounds
 
 
