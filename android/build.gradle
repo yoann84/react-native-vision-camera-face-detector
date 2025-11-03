@@ -52,7 +52,16 @@ repositories {
 dependencies {
     //noinspection GradleDynamicVersion
     implementation "com.facebook.react:react-native:+"  // From node_modules
-    api project(":react-native-vision-camera")
+    
+    // Vision Camera dependency - works with both npm and GitHub sources
+    def visionCameraProject = findProject(":react-native-vision-camera")
+    if (visionCameraProject != null) {
+        api project(":react-native-vision-camera")
+    } else {
+        // Fallback to any available version from node_modules
+        api "com.mrousavy:react-native-vision-camera:+"
+    }
+    
     implementation "androidx.annotation:annotation:1.9.1"
     implementation "androidx.camera:camera-core:1.5.1"
     implementation "com.google.mlkit:face-detection:16.1.7"
